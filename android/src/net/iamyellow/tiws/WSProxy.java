@@ -181,8 +181,8 @@ public class WSProxy extends KrollProxy implements OnLifecycleEvent {
 
 	@Kroll.method
 	public boolean isConnected() {
-		return connected;
-	}	
+		return client != null && client.isConnected();
+	}
 
 	@Kroll.method
 	public void close() {

@@ -248,7 +248,11 @@ public class WebSocketClient {
             }
         });
     }
-
+    
+    public boolean isConnected() {
+    	return mSocket != null && mSocket.isConnected();
+    }
+    
     public interface Listener {
         public void onConnect();
         public void onMessage(String message);
