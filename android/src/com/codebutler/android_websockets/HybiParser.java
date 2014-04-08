@@ -36,9 +36,9 @@ import java.io.*;
 import java.util.Arrays;
 import java.util.List;
 
-import net.iamyellow.tiws.TiwsModule;
-
 public class HybiParser {
+    private static final String TAG = "HybiParser";
+
     private WebSocketClient mClient;
 
     private boolean mMasking = true;
@@ -128,7 +128,7 @@ public class HybiParser {
                     break;
             }
         }
-        mClient.getHandler().onDisconnect(0, "EOF");
+        mClient.getListener().onDisconnect(0, "EOF");
     }
 
     private void parseOpcode(byte data) throws ProtocolError {
@@ -149,7 +149,7 @@ public class HybiParser {
             throw new ProtocolError("Bad opcode");
         }
 
-        if (FRAGMENTED_OPCODES.contains(mOpcode) && !mFinal) {
+        if (!FRAGMENTED_OPCODES.contains(mOpcode) && !mFinal) {
             throw new ProtocolError("Expected non-final packet");
         }
 
@@ -192,9 +192,7 @@ public class HybiParser {
     private byte[] frame(Object data, int opcode, int errorCode) {
         if (mClosed) return null;
 
-		if (TiwsModule.DBG) {
-			Log.d(TiwsModule.LCAT, "Creating frame for: " + data + " op: " + opcode + " err: " + errorCode);
-		}
+        Log.d(TAG, "Creating frame for: " + data + " op: " + opcode + " err: " + errorCode);
 
         byte[] buffer = (data instanceof String) ? decode((String) data) : (byte[]) data;
         int insert = (errorCode > 0) ? 2 : 0;
@@ -264,9 +262,9 @@ public class HybiParser {
             if (mFinal) {
                 byte[] message = mBuffer.toByteArray();
                 if (mMode == MODE_TEXT) {
-                    mClient.getHandler().onMessage(encode(message));
+                    mClient.getListener().onMessage(encode(message));
                 } else {
-                    mClient.getHandler().onMessage(message);
+                    mClient.getListener().onMessage(message);
                 }
                 reset();
             }
@@ -274,7 +272,7 @@ public class HybiParser {
         } else if (opcode == OP_TEXT) {
             if (mFinal) {
                 String messageText = encode(payload);
-                mClient.getHandler().onMessage(messageText);
+                mClient.getListener().onMessage(messageText);
             } else {
                 mMode = MODE_TEXT;
                 mBuffer.write(payload);
@@ -282,7 +280,7 @@ public class HybiParser {
 
         } else if (opcode == OP_BINARY) {
             if (mFinal) {
-                mClient.getHandler().onMessage(payload);
+                mClient.getListener().onMessage(payload);
             } else {
                 mMode = MODE_BINARY;
                 mBuffer.write(payload);
@@ -291,24 +289,18 @@ public class HybiParser {
         } else if (opcode == OP_CLOSE) {
             int    code   = (payload.length >= 2) ? 256 * payload[0] + payload[1] : 0;
             String reason = (payload.length >  2) ? encode(slice(payload, 2))     : null;
-    		if (TiwsModule.DBG) {
-    			Log.d(TiwsModule.LCAT, "Got close op! " + code + " " + reason);
-    		}
-            mClient.getHandler().onDisconnect(code, reason);
+            Log.d(TAG, "Got close op! " + code + " " + reason);
+            mClient.getListener().onDisconnect(code, reason);
 
         } else if (opcode == OP_PING) {
             if (payload.length > 125) { throw new ProtocolError("Ping payload too large"); }
-    		if (TiwsModule.DBG) {
-    			Log.d(TiwsModule.LCAT, "Sending pong!!");
-    		}
+            Log.d(TAG, "Sending pong!!");
             mClient.sendFrame(frame(payload, OP_PONG, -1));
 
         } else if (opcode == OP_PONG) {
             String message = encode(payload);
             // FIXME: Fire callback...
-    		if (TiwsModule.DBG) {
-    			Log.d(TiwsModule.LCAT, "Got pong! " + message);
-    		}
+            Log.d(TAG, "Got pong! " + message);
         }
     }
 
@@ -340,42 +332,9 @@ public class HybiParser {
         }
         return (int) i;
     }
-    
-    /**
-     * Copied from AOSP Arrays.java.
-     */
-    /**
-     * Copies elements from {@code original} into a new array, from indexes start (inclusive) to
-     * end (exclusive). The original order of elements is preserved.
-     * If {@code end} is greater than {@code original.length}, the result is padded
-     * with the value {@code (byte) 0}.
-     *
-     * @param original the original array
-     * @param start the start index, inclusive
-     * @param end the end index, exclusive
-     * @return the new array
-     * @throws ArrayIndexOutOfBoundsException if {@code start < 0 || start > original.length}
-     * @throws IllegalArgumentException if {@code start > end}
-     * @throws NullPointerException if {@code original == null}
-     * @since 1.6
-     */
-    private static byte[] copyOfRange(byte[] original, int start, int end) {
-        if (start > end) {
-            throw new IllegalArgumentException();
-        }
-        int originalLength = original.length;
-        if (start < 0 || start > originalLength) {
-            throw new ArrayIndexOutOfBoundsException();
-        }
-        int resultLength = end - start;
-        int copyLength = Math.min(resultLength, originalLength - start);
-        byte[] result = new byte[resultLength];
-        System.arraycopy(original, start, result, 0, copyLength);
-        return result;
-    }
 
     private byte[] slice(byte[] array, int start) {
-        return copyOfRange(array, start, array.length);
+        return Arrays.copyOfRange(array, start, array.length);
     }
 
     public static class ProtocolError extends IOException {
@@ -403,21 +362,7 @@ public class HybiParser {
 
         public byte[] readBytes(int length) throws IOException {
             byte[] buffer = new byte[length];
-
-            int total = 0;
-
-            while (total < length) {
-                int count = read(buffer, total, length - total);
-                if (count == -1) {
-                    break;
-                }
-                total += count;
-            }
-
-            if (total != length) {
-                throw new IOException(String.format("Read wrong number of bytes. Got: %s, Expected: %s.", total, length));
-            }
-
+            readFully(buffer);
             return buffer;
         }
     }

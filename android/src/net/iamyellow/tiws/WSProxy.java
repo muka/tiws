@@ -21,6 +21,7 @@ import org.appcelerator.kroll.common.Log;
 import org.appcelerator.kroll.KrollDict;
 import org.appcelerator.kroll.KrollProxy;
 import org.appcelerator.titanium.TiContext.OnLifecycleEvent;
+import org.appcelerator.titanium.io.TitaniumBlob;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -32,9 +33,12 @@ import com.codebutler.android_websockets.WebSocketClient;
 
 @Kroll.proxy(creatableInModule = TiwsModule.class)
 public class WSProxy extends KrollProxy implements OnLifecycleEvent {
+	
 	private WebSocketClient client;
+	
 	private boolean connected = false;
-
+	private String uri;
+	
 	// Constructor
 	public WSProxy() {
 		super();
@@ -92,18 +96,22 @@ public class WSProxy extends KrollProxy implements OnLifecycleEvent {
 	@Kroll.method
 	public void open(String uri) {
 		final KrollProxy self = this;
+		
+		this.uri = uri;
 
 		try {
+			
 			if (TiwsModule.DBG) {
 				Log.d(TiwsModule.LCAT, "* creating websocket");
 			}
 			
-			client = new WebSocketClient(new URI(uri), new WebSocketClient.Handler() {
+			client = new WebSocketClient(new URI(uri), new WebSocketClient.Listener() {
+
 				@Override
 	            public void onMessage(byte[] data) {
 					if (client == null) {
 						return;
-					}					
+					}
 				}
 				
 				@Override
