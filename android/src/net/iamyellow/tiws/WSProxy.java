@@ -25,6 +25,7 @@ import org.appcelerator.titanium.TiContext.OnLifecycleEvent;
 import java.net.URI;
 import java.net.URISyntaxException;
 
+import android.R.bool;
 import android.app.Activity;
 
 import com.codebutler.android_websockets.WebSocketClient;
@@ -169,6 +170,11 @@ public class WSProxy extends KrollProxy implements OnLifecycleEvent {
 			cleanup();
 		}
 	}
+
+	@Kroll.method
+	public boolean isConnected() {
+		return connected;
+	}	
 
 	@Kroll.method
 	public void close() {
