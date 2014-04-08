@@ -3,3 +3,5 @@
 *.xcworkspace
 *~
 *.swp
+
+android/libs
